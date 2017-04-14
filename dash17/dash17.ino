@@ -14,7 +14,7 @@ const int SPI_CS_PIN = 10;
 const int SD_CS_PIN = 9;
 
 
-// Declare class for CAN Shield
+// Declare object for CAN Shield
 MCP_CAN CAN(SPI_CS_PIN);
 
 //initialize SD stuff
@@ -61,7 +61,7 @@ void setup() {
   
   
   // put your setup code here, to run once:
-  Serial.begin(9600);
+  Serial.begin(115200);
   
 
   //Wait for USB Serial 
@@ -162,7 +162,8 @@ void loop() {
   }
 
   analogWrite(FAN_PINR, 128);
-  
+
+  /*
   Serial.print("3Way l: ");
   Serial.print(three_wayl);
   Serial.print(" 3Way r: ");
@@ -171,13 +172,13 @@ void loop() {
   Serial.print(to_dSPACE[1]);
   Serial.print(" HVA: ");
   Serial.println(to_dSPACE[0]);
+  */
   
-  
-/*
+
 
   //add timer to send general message every certain amount of time
   
-
+/*
   //check for can message from dSPACE
   if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
   {
@@ -232,11 +233,17 @@ void loop() {
           tot[i+8] = buf[i];
         }
       }
-    }
 
+      //Serial.println(tot[0]);
+      //send data through serial
+      Serial.write(tot,16);
+      Serial.write(255);
+    }
+  }
+*/
     //HV active led
     //digitalWrite(HV_ACTIVE_LED, *HV_active_b);
-    
+/*    
     //fan signal
     int currentEngTemp = atoi(&engTemp);
     if(currentEngTemp < MIN_ENG_TEMP)
@@ -252,11 +259,10 @@ void loop() {
 
     analogWrite(FAN_PINR, fanSpeedLeft);
     analogWrite(FAN_PINL, fanSpeedRight);
+*/
 
-
-    //send data through serial
-    Serial.write(tot,16);
-
+    
+/*
     //log data
       // open the file. note that only one file can be open at a time,
       // so you have to close this one before opening another.
