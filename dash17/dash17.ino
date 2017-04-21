@@ -130,7 +130,7 @@ const long interval = 1;
 #define ID2 0x60
 #define DASH_ID 0x65
 #define FAN_ID 0x70
-#define HV_ID 0x800
+#define HV_ID 0x700
 #define THREE_WAY_ID 0x90
 
 void loop() {
@@ -154,14 +154,17 @@ void loop() {
 
   if (currentMillis - previousMillis >= interval) {
     //invert value
-    to_dSPACE[0] = LOW == digitalRead(HV_ACTIVE_BUTTON);
+    to_dSPACE[0] = digitalRead(HV_ACTIVE_BUTTON);
     //send CAN packet
     CAN.sendMsgBuf(HV_ID, 0, 2, to_dSPACE);
+    //Serial.print("SENT");
+    //Serial.println(to_dSPACE[0]);
     // save the last time you blinked the LED
     previousMillis = currentMillis;
   }
 
-  analogWrite(FAN_PINR, 128);
+  analogWrite(FAN_PINR, 190);
+  analogWrite(FAN_PINL, 128);
 
   /*
   Serial.print("3Way l: ");
