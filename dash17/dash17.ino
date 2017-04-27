@@ -1,7 +1,7 @@
 #include <mcp_can.h>
 #include <mcp_can_dfs.h>
-#include <SPI.h>
-#include "SdFat.h"
+//#include <SPI.h>
+//#include "SdFat.h"
 
 #define MIN_ENG_TEMP 190
 #define MAX_ENG_TEMP 210
@@ -18,9 +18,9 @@ const int SD_CS_PIN = 9;
 MCP_CAN CAN(SPI_CS_PIN);
 
 //initialize SD stuff
-SdFat SD;
+//SdFat SD;
 
-File myFile;
+//File myFile;
 
 //define pin mappings
 //save pint 0 and 1 for RX/TX
@@ -54,9 +54,9 @@ void setup() {
   digitalWrite(THREE_WAY_PINR, HIGH);
   pinMode(HV_ACTIVE_BUTTON, INPUT);
   digitalWrite(HV_ACTIVE_BUTTON, HIGH);
-  //initialize  interupt for HV button
-  //attachInterrupt(digitalPinToInterrupt(HV_ACTIVE_BUTTON), HV_ISR, RISING);
-  pinMode(HV_ACTIVE_LED, OUTPUT);
+  //pinMode(HV_ACTIVE_LED, OUTPUT);
+
+  //digitalWrite(A2, INPUT_PULLUP);  // set pullup on analog pin 0 
   
   
   
@@ -64,10 +64,10 @@ void setup() {
   Serial.begin(115200);
   
 
-  //Wait for USB Serial 
-  while (!Serial) {
-    SysCall::yield();
-  }
+//  //Wait for USB Serial 
+//  while (!Serial) {
+//    SysCall::yield();
+//  }
 
   // init can bus : baudrate = 1000k
   while(CAN.begin(CAN_1000KBPS) == CAN_FAILINIT)
@@ -117,7 +117,9 @@ void setup() {
 }
 
 //dSPACE buffer: {HV_active,threeway}
+unsigned char charIn;
 unsigned char to_dSPACE[2] = {0,0};
+unsigned char to_Pandora[1] = {0};
 unsigned char buf[8];
 unsigned char len;
 unsigned char tot[16];
@@ -131,7 +133,13 @@ const long interval = 1;
 #define DASH_ID 0x65
 #define FAN_ID 0x70
 #define HV_ID 0x700
-#define THREE_WAY_ID 0x90
+#define THREE_WAY_ID 0x90 
+#define PAN_ID 0x30
+
+#define SHIFT_UP_CHAR     'u'
+#define SHIFT_DOWN_CHAR   'd'
+#define SHIFT_HALF_CHAR   'h'
+#define CLUTCH_CHAR       'c'
 
 void loop() {
 
@@ -154,7 +162,7 @@ void loop() {
 
   if (currentMillis - previousMillis >= interval) {
     //invert value
-    to_dSPACE[0] = digitalRead(HV_ACTIVE_BUTTON);
+    to_dSPACE[0] = LOW == digitalRead(HV_ACTIVE_BUTTON);
     //send CAN packet
     CAN.sendMsgBuf(HV_ID, 0, 2, to_dSPACE);
     //Serial.print("SENT");
@@ -165,6 +173,14 @@ void loop() {
 
   analogWrite(FAN_PINR, 190);
   analogWrite(FAN_PINL, 128);
+
+  if (Serial.available()) 
+  {
+    // read the incoming byte:
+    to_Pandora[0] = Serial.read();
+    CAN.sendMsgBuf(PAN_ID, 0, 1, to_Pandora);
+  }
+
 
   /*
   Serial.print("3Way l: ");
