@@ -1,3 +1,4 @@
+#include <SoftwareSerial.h>
 #include <mcp_can.h>
 #include <mcp_can_dfs.h>
 //#include <SPI.h>
@@ -24,14 +25,25 @@ MCP_CAN CAN(SPI_CS_PIN);
 
 //define pin mappings
 //save pint 0 and 1 for RX/TX
-const int THREE_WAY_PINL = 3;
-const int THREE_WAY_PINR = 4;
-const int FAN_PINR = 5;
-const int FAN_PINL = 6;
-const int HV_ACTIVE_BUTTON = 2; 
-const int HV_ACTIVE_LED = A1;
-const int SPARE_BLUE_PIN = A2;
-const int SPARE_YELLOW_PIN = A3;
+//const int THREE_WAY_PINL = 3;
+//const int THREE_WAY_PINR = 4;
+//const int FAN_PINR = 5;
+//const int FAN_PINL = 6;
+//const int HV_ACTIVE_BUTTON = 2; 
+//const int HV_ACTIVE_LED = A1;
+//const int SPARE_BLUE_PIN = A2;
+//const int SPARE_YELLOW_PIN = A3;
+//const int LV_SOC_PIN = A0;
+
+#define THREE_WAY_PINL    3
+#define THREE_WAY_PINR    4
+#define FAN_PINR          5
+#define FAN_PINL          6
+#define HV_ACTIVE_BUTTON  2  
+#define HV_ACTIVE_LED     A1
+#define SPARE_BLUE_PIN    A2
+#define SPARE_YELLOW_PIN  A3
+#define LV_SOC_PIN        A0
 
 
 //init button variables
@@ -54,6 +66,7 @@ void setup() {
   digitalWrite(THREE_WAY_PINR, HIGH);
   pinMode(HV_ACTIVE_BUTTON, INPUT);
   digitalWrite(HV_ACTIVE_BUTTON, HIGH);
+  //pinMode(LV_SOC_PIN, INPUT);
   //pinMode(HV_ACTIVE_LED, OUTPUT);
 
   //digitalWrite(A2, INPUT_PULLUP);  // set pullup on analog pin 0 
@@ -61,7 +74,8 @@ void setup() {
   
   
   // put your setup code here, to run once:
-  Serial.begin(115200);
+  Serial.begin(9600);
+  //Serial.begin(250000);
   
 
 //  //Wait for USB Serial 
@@ -74,6 +88,8 @@ void setup() {
   {
       delay(100);
   }
+
+  Serial.println("initialized");
   /*
   Serial.print("Initializing SD card...");
   // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
@@ -117,31 +133,57 @@ void setup() {
 }
 
 //dSPACE buffer: {HV_active,threeway}
-unsigned char charIn;
+char charIn;
 unsigned char to_dSPACE[2] = {0,0};
-unsigned char to_Pandora[1] = {0};
+unsigned char to_AVR[1] = {0};
+unsigned char the_SOC[1] = {0};
 unsigned char buf[8];
 unsigned char len;
-unsigned char tot[16];
+unsigned char tot[15];
 unsigned int canID;
 unsigned long currentMillis;
 unsigned long previousMillis = 0;
 const long interval = 1;
 
-#define ID1 0x50
-#define ID2 0x60
+#define ID1 0x200
+#define ID2 0x201
 #define DASH_ID 0x65
 #define FAN_ID 0x70
 #define HV_ID 0x700
 #define THREE_WAY_ID 0x90 
-#define PAN_ID 0x30
-
-#define SHIFT_UP_CHAR     'u'
-#define SHIFT_DOWN_CHAR   'd'
-#define SHIFT_HALF_CHAR   'h'
-#define CLUTCH_CHAR       'c'
+#define CLUTCH_ID 0x30
+#define LV_SOC_ID 0x1F4
 
 void loop() {
+
+  //the_SOC[0] = 1;
+  
+  //CAN.sendMsgBuf(LV_SOC_ID, 0, 1, the_SOC);
+
+  if (Serial.available()) {
+    //Serial.print("In here ");
+    // read the incoming byte:
+    charIn = Serial.read();
+
+    switch(charIn) {
+      case 'D':
+        to_AVR[0] = 0;
+        //Serial.println("D");
+        CAN.sendMsgBuf(CLUTCH_ID, 0, 1, to_AVR);
+        break;
+      case 'R':
+        to_AVR[0] = 1;
+        //Serial.println("R");
+        CAN.sendMsgBuf(CLUTCH_ID, 0, 1, to_AVR);
+        break;
+    }
+
+    //CAN.sendMsgBuf(HV_ID, 0, 2, to_dSPACE);
+
+    // say what you got:
+    //Serial.print("I received: ");
+    //Serial.println(incomingByte, DEC);
+  }
 
   //read in values from dash
   three_wayl = LOW == digitalRead(THREE_WAY_PINL);
@@ -174,13 +216,6 @@ void loop() {
   analogWrite(FAN_PINR, 190);
   analogWrite(FAN_PINL, 128);
 
-  if (Serial.available()) 
-  {
-    // read the incoming byte:
-    to_Pandora[0] = Serial.read();
-    CAN.sendMsgBuf(PAN_ID, 0, 1, to_Pandora);
-  }
-
 
   /*
   Serial.print("3Way l: ");
@@ -193,11 +228,9 @@ void loop() {
   Serial.println(to_dSPACE[0]);
   */
   
-
-
   //add timer to send general message every certain amount of time
   
-/*
+
   //check for can message from dSPACE
   if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
   {
@@ -209,62 +242,40 @@ void loop() {
     {
       case ID1:
       {
+        //delay(100);
         //Serial.println("one");
         for(int i=0; i<len; i++)
         {
           tot[i] = buf[i];
         }
+        break;
       }
       case ID2:
       {
+        //delay(100);
         //Serial.println("two");
         for(int i=0; i<len; i++)
         {
           tot[i+8] = buf[i];
         }
+        break;
       }
-      case FAN_ID:
-      {
-        engTemp = buf[0];
-        fan_2 = buf[1];
-      }
-    }
-
-    //Serial.println("message here");
-    CAN.readMsgBuf(&len, buf);    // read data,  len: data length, buf: data buf
-    canID = CAN.getCanId(); //get CAN id for switch
-
-    switch(canID) 
-    {
-      case ID1:
-      {
-        //Serial.println("one");
-        for(int i=0; i<len; i++)
-        {
-          tot[i] = buf[i];
-        }
-      }
-      case ID2:
-      {
-        //Serial.println("two");
-        for(int i=0; i<len; i++)
-        {
-          tot[i+8] = buf[i];
-        }
-      }
-
-      //Serial.println(tot[0]);
-      //send data through serial
-      Serial.write(tot,16);
-      Serial.write(255);
-    }
+     }
+     Serial.write(tot,15);
+     Serial.write(255);
   }
-*/
+
+//  for(int i=0; i<14; i++) {
+//    Serial.print(tot[i]);
+//    Serial.print("  ");
+//  }
+//  Serial.println();
+
     //HV active led
     //digitalWrite(HV_ACTIVE_LED, *HV_active_b);
 /*    
     //fan signal
-    int currentEngTemp = atoi(&engTemp);
+    int currentEngTemp = tot[0];
     if(currentEngTemp < MIN_ENG_TEMP)
     {
     	fanSpeedLeft = 0;
@@ -273,7 +284,7 @@ void loop() {
     else
     {
     	int fanSpeedLeft = map(currentEngTemp, MIN_ENG_TEMP, MAX_ENG_TEMP, 0, 255);
-    	int fanSpeedRight = fanSpeedLeft*1.1;
+    	int fanSpeedRight = fanSpeedLeft;
     }
 
     analogWrite(FAN_PINR, fanSpeedLeft);
