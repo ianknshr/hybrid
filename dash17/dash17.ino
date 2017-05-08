@@ -45,6 +45,8 @@ MCP_CAN CAN(SPI_CS_PIN);
 #define SPARE_YELLOW_PIN  A3
 #define LV_SOC_PIN        A0
 
+#define TEL_INT           10
+
 
 //init button variables
 bool three_wayl = 0;
@@ -143,7 +145,10 @@ unsigned char tot[15];
 unsigned int canID;
 unsigned long currentMillis;
 unsigned long previousMillis = 0;
+unsigned long telMillis;
+unsigned long prevMillis = 0;
 const long interval = 1;
+unsigned int rpm = 0;
 
 #define ID1 0x200
 #define ID2 0x201
@@ -152,7 +157,9 @@ const long interval = 1;
 #define HV_ID 0x700
 #define THREE_WAY_ID 0x90 
 #define CLUTCH_ID 0x30
+#define BOOST_ID 0x69
 #define LV_SOC_ID 0x1F4
+#define RPM_ID 0x1E
 
 void loop() {
 
@@ -176,6 +183,19 @@ void loop() {
         //Serial.println("R");
         CAN.sendMsgBuf(CLUTCH_ID, 0, 1, to_AVR);
         break;
+      case 'B':
+        to_AVR[0] = 1;
+        //Serial.println("B");
+        CAN.sendMsgBuf(BOOST_ID, 0, 1, to_AVR);
+        break;
+      case 'E':
+        to_AVR[0] = 0;
+        //Serial.println("E");
+        CAN.sendMsgBuf(BOOST_ID, 0, 1, to_AVR);
+        break;
+       //default:
+        //Serial.print("Bad char: ");
+        //Serial.println(charIn);
     }
 
     //CAN.sendMsgBuf(HV_ID, 0, 2, to_dSPACE);
@@ -213,8 +233,14 @@ void loop() {
     previousMillis = currentMillis;
   }
 
-  analogWrite(FAN_PINR, 190);
-  analogWrite(FAN_PINL, 128);
+  if(rpm) {
+    analogWrite(FAN_PINR, 190);
+    analogWrite(FAN_PINL, 128);
+  }
+  else {
+    analogWrite(FAN_PINR, 0);
+    analogWrite(FAN_PINL, 0);
+  }
 
 
   /*
@@ -238,6 +264,13 @@ void loop() {
     CAN.readMsgBuf(&len, buf);    // read data,  len: data length, buf: data buf
     canID = CAN.getCanId(); //get CAN id for switch
 
+//    for(int i=0; i<len; i++)
+//    {
+//      Serial.print(buf[i]);
+//      Serial.print("  ");
+//    }
+//    Serial.println(canID);
+
     switch(canID)
     {
       case ID1:
@@ -248,6 +281,14 @@ void loop() {
         {
           tot[i] = buf[i];
         }
+//        for(int i=0; i<len; i++)
+//        {
+//            Serial.print(buf[i]);
+//            Serial.print("  ");
+//        }
+//        Serial.println(canID);
+        Serial.write(tot,15);
+        Serial.write(255);
         break;
       }
       case ID2:
@@ -258,18 +299,43 @@ void loop() {
         {
           tot[i+8] = buf[i];
         }
+//        for(int i=0; i<len; i++)
+//        {
+//          Serial.print(buf[i]);
+//          Serial.print("  ");
+//        }
+//        Serial.println(canID);
+//        for(int i=0; i<15; i++) {
+//          Serial.print(tot[i]);
+//          Serial.print("  ");
+//        }
+//        Serial.println();
+        Serial.write(tot,15);
+        Serial.write(255);
         break;
       }
-     }
-     Serial.write(tot,15);
-     Serial.write(255);
+      case RPM_ID:
+        rpm = 0;
+        rpm = buf[1];
+        rpm = rpm<<8;
+        rpm += buf[0];
+    }
   }
 
-//  for(int i=0; i<14; i++) {
+//  for(int i=0; i<15; i++) {
 //    Serial.print(tot[i]);
 //    Serial.print("  ");
 //  }
 //  Serial.println();
+
+  telMillis = millis();
+  if (telMillis - prevMillis >= TEL_INT) {
+    //Serial.write(tot,15);
+    //Serial.write(255);
+    
+    // save the last time you blinked the LED
+    prevMillis = telMillis;
+  }
 
     //HV active led
     //digitalWrite(HV_ACTIVE_LED, *HV_active_b);

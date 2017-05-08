@@ -29,11 +29,35 @@ void serial_send(unsigned char data)
     UDR0 = data;
 }
 
+// OCR1A controls frequency
+void setup_timer_interrupt()
+{
+    TCCR1A &= ~(1<<COM1A1);    // disconnect pin OC1A
+    TCCR1A &= ~(1<<COM1A0);
+    TCCR1A &= ~(1<<COM1B1);    // disconnect pin OC1B
+    TCCR1A &= ~(1<<COM1B0);
+    TCCR1A &= ~((1<<WGM10)|(1<<WGM11));    // setup proper behavior
+    TCCR1B |= (1<<WGM12);
+    TCCR1B &= ~(1<<WGM13);
+    TCCR1B |= (1<<CS12);    // set prescalar to 256
+    TCCR1B &= ~((1<<CS11)|(1<<CS10));
+    TIMSK1 |= (1<<OCIE1A);    // trigger interrupt on compare match A
+    OCR1A = 1562; // ~50 ms
+}
 
-volatile int int_detected = 0;
+// send status packet
+ISR(TIMER1_COMPA_vect)
+{
+    serial_send(PINC);
+}
+
+//volatile int int_detected = 0;
 ISR(PCINT1_vect)
 {
-    int_detected = 1;
+    //int_detected = 1;
+    //_delay_ms(10);
+    serial_send(PINC);
+    //_delay_ms(50);
 }
 
 int main()
@@ -57,25 +81,12 @@ int main()
     PCICR |= (1<<PCIE1);
     PCMSK1 |= (1<<PCINT9)|(1<<PCINT10);
     PCMSK1 |= (1<<PCINT11)|(1<<PCINT13);
-    PCMSK1 &= ~(1<<PCINT8);
+    PCMSK1 |= (1<<PCINT8);	// ev boost button
     PCMSK1 &= ~(1<<PCINT12);
     PCMSK1 &= ~(1<<PCINT14);
-    
-/*    // setup serial
-    UCSR0A &= ~(1<<U2X0);   // normal tx speed
-    UCSR0B |= (1<<TXEN0);   // enable transmitter
-    UCSR0C &= ~(1<<UMSEL01);    // select asynchronous operation
-    UCSR0C &= ~(1<<UMSEL00);
-    UCSR0C &= ~(1<<UPM01);  // no parity bit
-    UCSR0C &= ~(1<<UPM00);
-    UCSR0C &= ~(1<<USBS0);  // 1 stop bit
-    UCSR0C |= (1<<UCSZ01)|(1<<UCSZ00);  // 8 bit character size
-    UCSR0B &= ~(1<<UCSZ02);
-    UBRR0H = (unsigned char) (BAUD_PRESCALE>>8);   // set baud rate
-    UBRR0L = (unsigned char) BAUD_PRESCALE;
-*/
 
     usart_init(BAUD_PRESCALE);
+    setup_timer_interrupt();
 
     // enable global interupts
     sei();   
@@ -83,13 +94,13 @@ int main()
     // execution loop
     while(1)
     {
-        if(int_detected)
+        /*if(int_detected)
         {
             _delay_ms(10);
             serial_send(PINC);
             _delay_ms(50);
             int_detected = 0;
-        }
+        }*/
     }
 
     return 0;
